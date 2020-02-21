@@ -1,10 +1,8 @@
 import os
 import sys
+import getpass
 
-##os.chdir("..")
-print(os.getcwd())
-sys.path.append(os.getcwd() + "/package")
-from LeekSession import leekSession
+from package import LeekSession
 
 BASE_URL = "https://leekwars.com/api/"
 
@@ -18,15 +16,15 @@ HEAD = """\nLeekWarsFastGarden v{} by {}\nEnter "help" to display the help.""".f
 HELP = """
 Syntax: [command] [arg1] [arg2] [arg...]
 Command summary:
-    - login: Take two arguments [login] and [password]. This command should be the first one called.
-    - start_solo_fight: Take one or two argumtents [leekName] [number]. [number] can be omitted or set to 0 to start the maximum amount of fights.
-    - start_team_fight: Take one or two argumtents [compoName] [number]. [number] can be omitted or set to 0 to start the maximum amount of fights.
-    - quit: Exit the script.
-    - help: Display this help."""
+    - login: Takes no arguments. Type in this command to start the login process. This should be the first command issued.
+    - start_solo_fight: Takes one or two argumtents [leekName] [number]. [number] can be omitted or set to 0 to start the maximum amount of fights.
+    - start_team_fight: Takes one or two argumtents [compoName] [number]. [number] can be omitted or set to 0 to start the maximum amount of fights.
+    - quit: Exits the script.
+    - help: Displays this help."""
 
 
 
-session = leekSession(BASE_URL)
+session = LeekSession.LeekSession(BASE_URL)
 
 
 if __name__ == "__main__":
@@ -43,9 +41,11 @@ if __name__ == "__main__":
 
         if len(args) > 0:
             if args[0] in COMMAND_LIST:
-                if args[0] == "login" and len(args) == 3:
-                    if not session.login(args[1], args[2]):
-                        print("An error occured.")
+                if args[0] == "login":
+                    user = input("Username: ")
+                    password = getpass.getpass(prompt="Password: ")
+                    if not session.login(user, password):
+                        print("An error occured. Maybe you entered bad credentials.")
                         
                 elif args[0] == "start_solo_fight" and len(args) >= 2:
                     if session.connected:
@@ -83,4 +83,3 @@ if __name__ == "__main__":
                 print("""Wrong syntax...\nEnter "help" to display the help.""")
 
 session.logout()
-

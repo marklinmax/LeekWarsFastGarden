@@ -9,7 +9,7 @@ LOGIN = ""
 PASSWORD = ""
 
 
-class leekSession:
+class LeekSession:
 
     def __init__(self, base_url):
         self.BASE_URL = base_url
@@ -31,10 +31,10 @@ class leekSession:
                 self.farmer = result["farmer"]
                 self.connected = True
                 print("Logged in successfully!")
-                return 1
+                return True
             else:
                 print("The token could not be retrieved.")
-        return -1
+        return False
     
     ## Disconnect the user
     def logout(self):
@@ -222,14 +222,3 @@ class leekSession:
         else:
             print("No composition named {} found".format(compoName))
         return -1
-
-
-
-if __name__ == "__main__":
-    session = leekSession("https://leekwars.com/api/")
-
-    session.login(LOGIN, PASSWORD)
-    ##print(session.getTeamCompositions())
-    ##session.startSoloFights("SylvainPierreDuleek", 1)
-    session.startCompoFights("LVL_UP", 1)
-    session.logout()

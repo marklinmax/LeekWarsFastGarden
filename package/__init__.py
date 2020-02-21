@@ -1,1 +1,1 @@
-from LeekSession import leekSession
+from . import LeekSession
