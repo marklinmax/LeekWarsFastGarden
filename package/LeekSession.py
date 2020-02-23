@@ -50,7 +50,7 @@ class LeekSession:
         if len(self.farmer.keys()) != 0:
             if leekId in self.farmer["leeks"].keys():
                 return self.farmer["leeks"][leekId]["name"]
-        return -1
+        return False
 
     ## Return the farmer's leeks ID list.
     def getFarmerLeeks(self):
@@ -59,7 +59,7 @@ class LeekSession:
             for keys in self.farmer["leeks"]:
                 leeks.append(keys)
             return leeks
-        return -1
+        return False
 
     ## Return the farmer's leeks name list
     def getFarmerLeeksNames(self):
@@ -69,7 +69,7 @@ class LeekSession:
             for leek in leeks:
                 leeksName.append(self.getLeekName(leek))
             return leeksName
-        return -1
+        return False
 
     ## Return the ID for the specified leek name
     def getFarmerLeekId(self, leekName):
@@ -77,7 +77,7 @@ class LeekSession:
         for ID in leeks:
             if self.farmer["leeks"][ID]["name"] == leekName:
                 return ID
-        return -1
+        return False
 
     ## Return the leek with the smallest value of talent in the specified list
     def findWeakestLeek(self, leeks):
@@ -91,7 +91,7 @@ class LeekSession:
                         weakest = leek
                         
             return weakest
-        return 0
+        return False
 
 
 ## ================= COMPOSITIONS =================
@@ -118,7 +118,7 @@ class LeekSession:
         for compo in compos:
             if compo["name"] == compoName:
                 return compo["id"]
-        return -1
+        return False
 
     ## Return the garden for the specified composition
     def getTeamCompositionGarden(self, compoId):
@@ -127,7 +127,7 @@ class LeekSession:
         for garden in compos_garden:
             if garden["id"] == compoId:
                 return garden
-        return 0
+        return False
 
     ## Return the composition with the smallest value of talent in the specified list
     def findWeakestComposition(self, compos):
@@ -140,7 +140,7 @@ class LeekSession:
                     if compo["level"] < weakest["level"]:
                         weakest = compo
             return weakest
-        return 0
+        return False
 
 
 ## ================= FIGHTS =================
@@ -178,10 +178,10 @@ class LeekSession:
                     break
 
             print(" == Solo fights finished! == ")
-            return 1
+            return True
         else:
             print("No leek named {} found".format(leekName))
-        return -1
+        return False
 
     ## Start team fights for the composition of name compoName.
     ## The number of fights to start can be specified. Let number to 0 for max combat available.
@@ -218,7 +218,7 @@ class LeekSession:
                         break
 
                 print(" == Team fights finished! == ")       
-                return 1
+                return True
         else:
             print("No composition named {} found".format(compoName))
-        return -1
+        return False
