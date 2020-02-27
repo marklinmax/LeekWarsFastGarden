@@ -47,10 +47,13 @@ if __name__ == "__main__":
                     if not session.login(user, password):
                         print("An error occured. Maybe you entered bad credentials.")
                         
-                elif args[0] == "start_solo_fight" and len(args) >= 2:
+                elif args[0] == "start_solo_fight":
                     if session.connected:
                         if len(args) == 2:
                             if not session.startSoloFights(args[1]):
+                                print("An error occured.")
+                        elif len(args) == 1:
+                            if not session.startSoloFights():
                                 print("An error occured.")
                         else:
                             if not session.startSoloFights(args[1], int(args[2])):

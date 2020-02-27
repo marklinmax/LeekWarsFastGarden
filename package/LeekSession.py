@@ -43,6 +43,13 @@ class LeekSession:
             self.connected = False
 
 
+## ================= GARDEN =================
+
+    ## Return the user's garden.
+    def getGarden(self):
+        return requests.get(self.BASE_URL + "garden/get", cookies=self.TOKEN).json()["garden"]
+
+
 ## ================= FARMER LEEKS =================
 
     ## Return the name for the specified leek ID
@@ -147,10 +154,24 @@ class LeekSession:
 
     ## Start solo fights for the leek of name leekName.
     ## The number of fights to start can be specified. Let number to 0 for max combat available.
-    def startSoloFights(self, leekName, number=0):
-        if leekName in self.getFarmerLeeksNames():
+    def startSoloFights(self, leekName="", number=0):
+        if leekName == "":
+            names = self.getFarmerLeeksNames()
+            garden = self.getGarden()
+            total_fights = garden["fights"]
+
+            if total_fights % len(names) == 0:
+                for leek in names:
+                    self.startSoloFights(leek, int(total_fights/len(names)))
+            else:
+                self.startSoloFights(names[0], int(total_fights/len(names))+1)
+                for x in range(1, len(names)):
+                    self.startSoloFights(names[x], int(total_fights/len(names)))
+
+                
+        elif leekName in self.getFarmerLeeksNames():
             leekId = self.getFarmerLeekId(leekName)
-            garden = requests.get(self.BASE_URL + "garden/get", cookies=self.TOKEN).json()["garden"]
+            garden = self.getGarden()
             
             if number <= 0 or number > garden["fights"]:
                 number = garden["fights"]
