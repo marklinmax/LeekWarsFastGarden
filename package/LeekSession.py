@@ -156,19 +156,22 @@ class LeekSession:
     ## The number of fights to start can be specified. Let number to 0 for max combat available.
     def startSoloFights(self, leekName="", number=0):
         if leekName == "":
+            success = True
+            
             names = self.getFarmerLeeksNames()
             garden = self.getGarden()
             total_fights = garden["fights"]
 
             if total_fights % len(names) == 0:
                 for leek in names:
-                    self.startSoloFights(leek, int(total_fights/len(names)))
+                    success = success and self.startSoloFights(leek, int(total_fights/len(names)))
             else:
-                self.startSoloFights(names[0], int(total_fights/len(names))+1)
+                success = success and self.startSoloFights(names[0], int(total_fights/len(names))+1)
                 for x in range(1, len(names)):
-                    self.startSoloFights(names[x], int(total_fights/len(names)))
+                    success = success and self.startSoloFights(names[x], int(total_fights/len(names)))
 
-                
+            return success
+
         elif leekName in self.getFarmerLeeksNames():
             leekId = self.getFarmerLeekId(leekName)
             garden = self.getGarden()
