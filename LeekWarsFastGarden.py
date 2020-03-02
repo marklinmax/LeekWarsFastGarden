@@ -3,13 +3,19 @@ import sys
 import getpass
 
 from package import LeekSession
+from package import Updater
+
 
 BASE_URL = "https://leekwars.com/api/"
+
+CHECK_UPDATE_URL = "https://raw.githubusercontent.com/marklinmax/LeekWarsFastGarden/master/LeekWarsFastGarden.py"   ## URL to raw file containing version string on github
+ARCHIVE_URL = "https://github.com/marklinmax/LeekWarsFastGarden/archive/master.zip"
+
 
 COMMAND_LIST = ["login", "start_solo_fight", "start_team_fight", "help", "quit"]
 
 
-VERSION = "0.1"
+VERSION = "0.1.1"
 AUTHOR = "marklinmax"
 HEAD = """\nLeekWarsFastGarden v{} by {}\nEnter "help" to display the help.""".format(VERSION, AUTHOR)
 
@@ -23,13 +29,17 @@ Command summary:
     - help: Displays this help."""
 
 
-
-session = LeekSession.LeekSession(BASE_URL)
-
-
 if __name__ == "__main__":
+    os.chdir(os.path.dirname(__file__))
+    
+    updater = Updater.Updater(VERSION)
+    if updater.checkForUpdates(CHECK_UPDATE_URL) == True:
+        if not updater.update(ARCHIVE_URL, os.path.dirname(os.path.abspath(__file__+"/.."))):
+            print("\nAn error occured during the update process. Check the error messages for more informations.")
+    else:
+        print(HEAD)
 
-    print(HEAD)
+    session = LeekSession.LeekSession(BASE_URL)
 
     running = True
     
@@ -85,4 +95,4 @@ if __name__ == "__main__":
             else:
                 print("""Wrong syntax...\nEnter "help" to display the help.""")
 
-session.logout()
+    session.logout()
