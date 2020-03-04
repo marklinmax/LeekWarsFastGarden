@@ -23,8 +23,8 @@ HELP = """
 Syntax: [command] [arg1] [arg2] [arg...]
 Command summary:
     - login: Takes no arguments. Type in this command to start the login process. This should be the first command issued.
-    - start_solo_fight: Takes one or two argumtents [leekName] [number]. [number] can be omitted or set to 0 to start the maximum amount of fights.
-    - start_team_fight: Takes one or two argumtents [compoName] [number]. [number] can be omitted or set to 0 to start the maximum amount of fights.
+    - start_solo_fight: Takes from zero to two arguments. If no arguments passed, the maximum amount of fights will be split between all leeks. [leekName] can be passed as first argument to start fights for one specific leek. [number] can be passed as second argument to start a specified number of fights.
+    - start_team_fight: Takes one or two arguments [compoName] [number]. [number] can be omitted or set to 0 to start the maximum amount of fights.
     - quit: Exits the script.
     - help: Displays this help."""
 
