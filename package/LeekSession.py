@@ -219,7 +219,8 @@ class LeekSession:
                     number = garden["fights"]
 
                 print("\n == Starting {} team fights with composition {} == ".format(number, compoName))
-                for x in range(0, number):
+                initial_state = garden["fights"]
+                while number > initial_state - garden["fights"]:
                     oppo_obj = requests.get(self.BASE_URL + "garden/get-composition-opponents/{}".format(compoId), cookies=self.TOKEN)
                     oppo_cookie = oppo_obj.cookies
                     opponents = oppo_obj.json()["opponents"]
@@ -230,10 +231,7 @@ class LeekSession:
                         print("  Fight started between {} and {}".format(compoName, weakest["name"]))
                         
 
-                        new_garden = self.getTeamCompositionGarden(compoId)
-                        ## This part is not yet functional
-                        ##if garden["fights"] - 1 > new_garden["fights"]:       ## If the fight count changed from an external source
-                        ##    x += garden["fights"] - new_garden["fights"] - 1  ## we add the difference to x to skip some fights.
+                        new_garden = self.getTeamCompositionGarden(compoId) ## Refresh the garden
                         garden = new_garden
 
                         print("    -{} fights remaining for {}.".format(garden["fights"], compoName))
