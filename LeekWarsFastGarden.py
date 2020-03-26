@@ -15,7 +15,7 @@ ARCHIVE_URL = "https://github.com/marklinmax/LeekWarsFastGarden/archive/master.z
 COMMAND_LIST = ["login", "start_solo_fight", "start_team_fight", "help", "quit"]
 
 
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 AUTHOR = "marklinmax"
 HEAD = """\nLeekWarsFastGarden v{} by {}\nEnter "help" to display the help.""".format(VERSION, AUTHOR)
 
@@ -24,7 +24,7 @@ Syntax: [command] [arg1] [arg2] [arg...]
 Command summary:
     - login: Takes no arguments. Type in this command to start the login process. This should be the first command issued.
     - start_solo_fight: Takes from zero to two arguments. If no arguments passed, the maximum amount of fights will be split between all leeks. [leekName] can be passed as first argument to start fights for one specific leek. [number] can be passed as second argument to start a specified number of fights.
-    - start_team_fight: Takes one or two arguments [compoName] [number]. [number] can be omitted or set to 0 to start the maximum amount of fights.
+    - start_team_fight: Takes from zero to two arguments. If no arguments passed, the maximum amount of fights will be started for all compositions. [compoName] can be passed as first argument to start fights for one specific composition. [number] can be passed as second argument to start a specified number of fights.
     - quit: Exits the script.
     - help: Displays this help."""
 
@@ -71,10 +71,13 @@ if __name__ == "__main__":
                     else:
                         print("You have to be logged in first!")
                             
-                elif args[0] == "start_team_fight" and len(args) >= 2:
+                elif args[0] == "start_team_fight":
                     if session.connected:
                         if len(args) == 2:
                             if not session.startCompoFights(args[1]):
+                                print("An error occured.")
+                        elif len(args) == 1:
+                            if not session.startCompoFights():
                                 print("An error occured.")
                         else:
                             if not session.startCompoFights(args[1], int(args[2])):

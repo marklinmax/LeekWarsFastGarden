@@ -209,8 +209,18 @@ class LeekSession:
 
     ## Start team fights for the composition of name compoName.
     ## The number of fights to start can be specified. Let number to 0 for max combat available.
-    def startCompoFights(self, compoName, number=0):
-        if compoName in self.getTeamCompositionsNames():
+    def startCompoFights(self, compoName="", number=0):
+        if compoName == "":
+            success = True
+            
+            names = self.getTeamCompositionsNames()
+
+            for compo in names:
+                success = success and self.startCompoFights(compo)
+
+            return success
+        
+        elif compoName in self.getTeamCompositionsNames():
             compoId = self.getTeamCompositionId(compoName)
             garden = self.getTeamCompositionGarden(compoId)
 
