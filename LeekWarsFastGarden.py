@@ -12,10 +12,10 @@ CHECK_UPDATE_URL = "https://raw.githubusercontent.com/marklinmax/LeekWarsFastGar
 ARCHIVE_URL = "https://github.com/marklinmax/LeekWarsFastGarden/archive/master.zip"
 
 
-COMMAND_LIST = ["login", "start_solo_fight", "start_team_fight", "help", "quit"]
+COMMAND_LIST = ["login", "start_solo_fight", "start_team_fight", "start_fight", "help", "quit"]
 
 
-VERSION = "0.1.3"
+VERSION = "0.1.4"
 AUTHOR = "marklinmax"
 HEAD = """\nLeekWarsFastGarden v{} by {}\nEnter "help" to display the help.""".format(VERSION, AUTHOR)
 
@@ -82,6 +82,15 @@ if __name__ == "__main__":
                         else:
                             if not session.startCompoFights(args[1], int(args[2])):
                                 print("An error occured.")
+                    else:
+                        print("You have to be logged in first!")
+
+                elif args[0] == "start_fight":
+                    if session.connected:
+                        if not session.startSoloFights():
+                            print("An error occured.")
+                        if not session.startCompoFights():
+                            print("An error occured.")
                     else:
                         print("You have to be logged in first!")
                         
