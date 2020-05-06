@@ -100,6 +100,25 @@ class LeekSession:
             return weakest
         return False
 
+    def registerLeekTournament(self, leekName=""):
+        if leekName == "":
+            names = self.getFarmerLeeksNames()
+
+            for leek in names:
+                self.registerLeekTournament(leek)
+            
+        elif leekName in self.getFarmerLeeksNames():
+            leekId = self.getFarmerLeekId(leekName)
+            requests.post(self.BASE_URL + "leek/register-tournament", data={"leek_id" : str(leekId)}, cookies=self.TOKEN)
+            print("{} registered for solo tournament".format(leekName))
+            
+        else:
+            print("No leek named {} found".format(leekName))
+
+
+    def registerFarmerTournament(self):
+        res = requests.post(self.BASE_URL + "farmer/register-tournament", cookies=self.TOKEN)
+        print("Farmer registered for tournament")
 
 ## ================= COMPOSITIONS =================
 
@@ -148,6 +167,22 @@ class LeekSession:
                         weakest = compo
             return weakest
         return False
+
+    def registerCompositionTournament(self, compoName=""):
+        if compoName == "":
+            success = True
+            
+            names = self.getTeamCompositionsNames()
+
+            for compo in names:
+                self.registerCompositionTournament(compo)
+
+        elif compoName in self.getTeamCompositionsNames():
+            compoId = self.getTeamCompositionId(compoName)
+            requests.post(self.BASE_URL + "team/register-tournament", data={"composition_id" : str(compoId)}, cookies=self.TOKEN)
+            print("{} registered for team tournament".format(compoName))
+        else:
+            print("No composition named {} found".format(compoName))
 
 
 ## ================= FIGHTS =================
