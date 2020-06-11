@@ -21,7 +21,7 @@ class Updater:
             raw = urllib.request.urlopen(checkURL).read().decode()
             version = self.findVersion(raw)
             if self.compareVersions(self.version, version):
-                print("New version found (v{})! Starting the update process...".format(version))
+                print("New version found (v{})!".format(version))
                 return True
         except Exception as err:
             print(err)
@@ -57,6 +57,7 @@ class Updater:
     
 
     def update(self, archiveURL, path):
+        print("Starting the update process...")
         error = False
         print("Backing up folder before updating...")
         shutil.copytree(path, "backup", ignore=shutil.ignore_patterns(*IGNORED))

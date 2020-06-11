@@ -2,12 +2,6 @@ import requests
 import json
 import time
 
-FIGHT_DELAY = 0.2 ## Time between two combat requests in second.
-
-
-LOGIN = ""
-PASSWORD = ""
-
 
 class LeekSession:
 
@@ -15,8 +9,9 @@ class LeekSession:
         self.BASE_URL = base_url
 
         self.connected = False
-        self.TOKEN = {"token" : ""}     ## The token cookie that will be sent for identification
+        self.token = {"token" : ""}     ## The token cookie that will be sent for identification
         self.farmer = {}
+        self.fight_delay = 0.2 ## Time between two combat requests in second.
 
 
 ## ================= LOGIN =================
@@ -27,7 +22,7 @@ class LeekSession:
         result = r.json()
         if type(result) == dict:
             if "token" in result.keys():
-                self.TOKEN = {"token" : result["token"]}    ## Store the token as a cookie for future use
+                self.token = {"token" : result["token"]}    ## Store the token as a cookie for future use
                 self.farmer = result["farmer"]
                 self.connected = True
                 print("Logged in successfully!")
@@ -39,7 +34,7 @@ class LeekSession:
     ## Disconnect the user
     def logout(self):
         if self.connected == True:
-            requests.post(self.BASE_URL + "farmer/disconnect", cookies=self.TOKEN)
+            requests.post(self.BASE_URL + "farmer/disconnect", cookies=self.token)
             self.connected = False
 
 
@@ -47,8 +42,16 @@ class LeekSession:
 
     ## Return the user's garden.
     def getGarden(self):
-        return requests.get(self.BASE_URL + "garden/get", cookies=self.TOKEN).json()["garden"]
+        return requests.get(self.BASE_URL + "garden/get", cookies=self.token).json()["garden"]
 
+    ## Return the garden for the specified composition
+    def getTeamCompositionGarden(self, compoId):
+        compos_garden = requests.get(self.BASE_URL + "garden/get", cookies=self.token).json()["garden"]['my_compositions']
+
+        for garden in compos_garden:
+            if garden["id"] == compoId:
+                return garden
+        return False
 
 ## ================= FARMER LEEKS =================
 
@@ -109,22 +112,21 @@ class LeekSession:
             
         elif leekName in self.getFarmerLeeksNames():
             leekId = self.getFarmerLeekId(leekName)
-            requests.post(self.BASE_URL + "leek/register-tournament", data={"leek_id" : str(leekId)}, cookies=self.TOKEN)
+            requests.post(self.BASE_URL + "leek/register-tournament", data={"leek_id" : str(leekId)}, cookies=self.token)
             print("{} registered for solo tournament".format(leekName))
             
         else:
             print("No leek named {} found".format(leekName))
 
-
     def registerFarmerTournament(self):
-        res = requests.post(self.BASE_URL + "farmer/register-tournament", cookies=self.TOKEN)
+        res = requests.post(self.BASE_URL + "farmer/register-tournament", cookies=self.token)
         print("Farmer registered for tournament")
 
 ## ================= COMPOSITIONS =================
 
     ## Return the compositions list
     def getTeamCompositions(self):
-        compositions = requests.get(self.BASE_URL + "team-composition/get-farmer-compositions", cookies=self.TOKEN).json()
+        compositions = requests.get(self.BASE_URL + "team-composition/get-farmer-compositions", cookies=self.token).json()
         out = []
         for key, val in compositions.items():
             out.append(val)
@@ -144,15 +146,6 @@ class LeekSession:
         for compo in compos:
             if compo["name"] == compoName:
                 return compo["id"]
-        return False
-
-    ## Return the garden for the specified composition
-    def getTeamCompositionGarden(self, compoId):
-        compos_garden = requests.get(self.BASE_URL + "garden/get", cookies=self.TOKEN).json()["garden"]['my_compositions']
-
-        for garden in compos_garden:
-            if garden["id"] == compoId:
-                return garden
         return False
 
     ## Return the composition with the smallest value of talent in the specified list
@@ -179,7 +172,7 @@ class LeekSession:
 
         elif compoName in self.getTeamCompositionsNames():
             compoId = self.getTeamCompositionId(compoName)
-            requests.post(self.BASE_URL + "team/register-tournament", data={"composition_id" : str(compoId)}, cookies=self.TOKEN)
+            requests.post(self.BASE_URL + "team/register-tournament", data={"composition_id" : str(compoId)}, cookies=self.token)
             print("{} registered for team tournament".format(compoName))
         else:
             print("No composition named {} found".format(compoName))
@@ -187,7 +180,26 @@ class LeekSession:
 
 ## ================= FIGHTS =================
 
-    ## Start solo fights for the leek of name leekName.
+    ## Both starts fights and registers to tournaments
+    def startAll(self):
+        self.startFights()
+        self.registerTournaments()
+
+    ## Registers to every tournaments
+    def registerTournaments(self):
+        print("")
+        self.registerLeekTournament()
+        self.registerCompositionTournament()
+        self.registerFarmerTournament()
+
+    ## Starts all fights
+    def startFights(self):
+        if not self.startSoloFights():
+            print("An error occured during solo fights.")
+        if not self.startCompoFights():
+            print("An error occured during team fights.")
+
+    ## Starts solo fights for the leek of name leekName.
     ## The number of fights to start can be specified. Let number to 0 for max combat available.
     def startSoloFights(self, leekName="", number=0):
         if leekName == "":
@@ -216,7 +228,7 @@ class LeekSession:
                 
             print("\n == Starting {} solo fights... == ".format(number))
             for x in range(0, number):
-                oppo_obj = requests.get(self.BASE_URL + "garden/get-leek-opponents/{}".format(leekId), cookies=self.TOKEN)##["opponents"]
+                oppo_obj = requests.get(self.BASE_URL + "garden/get-leek-opponents/{}".format(leekId), cookies=self.token)##["opponents"]
                 oppo_cookie = oppo_obj.cookies  ## Retrieve the cookie that will be sent to start a fight
                 opponents = oppo_obj.json()["opponents"]    ## Retrieve the opponents list
                 
@@ -225,14 +237,14 @@ class LeekSession:
                     requests.post(self.BASE_URL + "garden/start-solo-fight", data={"leek_id" : str(leekId), "target_id" : str(weakest["id"])}, cookies=oppo_cookie)
                     print("  Fight started between {} and {}".format(leekName, weakest["name"]))
 
-                    new_garden = requests.get(self.BASE_URL + "garden/get", cookies=self.TOKEN).json()["garden"]
+                    new_garden = requests.get(self.BASE_URL + "garden/get", cookies=self.token).json()["garden"]
                     ## This part is not yet functional
                     ##if garden["fights"] - 1 > new_garden["fights"]:       ## If the fight count changed from an external source
                     ##    x += garden["fights"] - new_garden["fights"] - 1  ## we add the difference to x to skip some fights.
                     garden = new_garden
 
                     print("    -{} total solo fights remaining.".format(garden["fights"]))
-                    time.sleep(FIGHT_DELAY)
+                    time.sleep(self.fight_delay)
                 else:
                     break
 
@@ -266,7 +278,7 @@ class LeekSession:
                 print("\n == Starting {} team fights with composition {} == ".format(number, compoName))
                 initial_state = garden["fights"]
                 while number > initial_state - garden["fights"]:
-                    oppo_obj = requests.get(self.BASE_URL + "garden/get-composition-opponents/{}".format(compoId), cookies=self.TOKEN)
+                    oppo_obj = requests.get(self.BASE_URL + "garden/get-composition-opponents/{}".format(compoId), cookies=self.token)
                     oppo_cookie = oppo_obj.cookies
                     opponents = oppo_obj.json()["opponents"]
                     
@@ -280,7 +292,7 @@ class LeekSession:
                         garden = new_garden
 
                         print("    -{} fights remaining for {}.".format(garden["fights"], compoName))
-                        time.sleep(FIGHT_DELAY)
+                        time.sleep(self.fight_delay)
                     else:
                         break
 

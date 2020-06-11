@@ -8,14 +8,16 @@ from package import Updater
 
 BASE_URL = "https://leekwars.com/api/"
 
+
+ALLOWS_AUTO_UPDATE = True
 CHECK_UPDATE_URL = "https://raw.githubusercontent.com/marklinmax/LeekWarsFastGarden/master/LeekWarsFastGarden.py"   ## URL to raw file containing version string on github
 ARCHIVE_URL = "https://github.com/marklinmax/LeekWarsFastGarden/archive/master.zip"
 
 
-COMMAND_LIST = ["login", "start_solo_fight", "start_team_fight", "start_fight", "register_tournaments", "help", "quit"]
+COMMAND_LIST = ["login", "start_solo_fight", "start_team_fight", "start_fight", "start", "register_tournaments", "help", "quit"]
 
 
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 AUTHOR = "marklinmax"
 HEAD = """\nLeekWarsFastGarden v{} by {}\nEnter "help" to display the help.""".format(VERSION, AUTHOR)
 
@@ -33,15 +35,25 @@ if __name__ == "__main__":
     os.chdir(os.path.dirname(__file__))
     
     updater = Updater.Updater(VERSION)
-    if updater.checkForUpdates(CHECK_UPDATE_URL) == True:
+    if updater.checkForUpdates(CHECK_UPDATE_URL) and ALLOWS_AUTO_UPDATE:
         if not updater.update(ARCHIVE_URL, os.path.dirname(os.path.abspath(__file__+"/.."))):
             print("\nAn error occured during the update process. Check the error messages for more informations.")
     else:
         print(HEAD)
 
     session = LeekSession.LeekSession(BASE_URL)
-
     running = True
+
+    params = sys.argv
+    if len(params) == 3:
+        running = False
+        if session.login(params[1], params[2]):
+            session.startAll()
+        else:
+            print("Couldn't login with the given credentials.")
+    elif len(params) > 1:
+        print("You need to give username and password, or nothing.")
+        running = False
 
     while running:
         command = input(">>> ")
@@ -87,22 +99,19 @@ if __name__ == "__main__":
 
                 elif args[0] == "start_fight":
                     if session.connected:
-                        if not session.startSoloFights():
-                            print("An error occured.")
-                        if not session.startCompoFights():
-                            print("An error occured.")
-                        session.registerLeekTournament()
-                        session.registerCompositionTournament()
-                        session.registerFarmerTournament()
+                        session.startFights()
+                    else:
+                        print("You have to be logged in first!")
                         
+                elif args[0] == "start":
+                    if session.connected:
+                        session.startAll()
                     else:
                         print("You have to be logged in first!")
 
                 elif args[0] == "register_tournaments":
                     if session.connected:
-                        session.registerLeekTournament()
-                        session.registerCompositionTournament()
-                        session.registerFarmerTournament()
+                        session.registerTournaments()
                     else:
                         print("You have to be logged in first!")
                         
