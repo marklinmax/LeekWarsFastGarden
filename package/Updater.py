@@ -8,7 +8,7 @@ from distutils.version import StrictVersion
 import urllib.request
 
 
-IGNORED = ["__pycache__", ".git", "python", "Temp", "backup", "."]
+IGNORED = ["__pycache__", ".git", "python", "Temp", "backup", ".", "stats"]
 
 class Updater:
 

@@ -1,6 +1,8 @@
 import requests
 import json
 import time
+import os
+import threading
 
 
 class LeekSession:
@@ -12,6 +14,13 @@ class LeekSession:
         self.token = {"token" : ""}     ## The token cookie that will be sent for identification
         self.farmer = {}
         self.fight_delay = 0.2 ## Time between two combat requests in second.
+        self.win_loose_score = 10
+
+        self.ennemy_stats = {}
+        self.stats_lock = threading.Lock()
+
+        self.thread_count = 0
+        self.count_lock = threading.Lock()
 
 
 ## ================= LOGIN =================
@@ -25,17 +34,53 @@ class LeekSession:
                 self.token = {"token" : result["token"]}    ## Store the token as a cookie for future use
                 self.farmer = result["farmer"]
                 self.connected = True
+
+                self.loadStats()
+                for leek_id in self.getFarmerLeeks():
+                    if not str(leek_id) in self.ennemy_stats.keys():
+                        self.ennemy_stats.update({leek_id : {"id" : leek_id, "name" : self.getLeekName(leek_id)}})
+
                 print("Logged in successfully!")
                 return True
             else:
                 print("The token could not be retrieved.")
         return False
-    
+
+
     ## Disconnect the user
     def logout(self):
         if self.connected == True:
+            if self.thread_count != 0:
+                print("Waiting for threads to terminate...")
+            x = 0
+            while self.thread_count != 0:
+                x += 1
+                if x >= 30:
+                    print("Some threads are stuck, skipping them...")
+                    break
+                time.sleep(1)
+
             requests.post(self.BASE_URL + "farmer/disconnect", cookies=self.token)
+            print("Saving stats...")
+            self.saveStats()
             self.connected = False
+
+    def loadStats(self):
+        if not "stats" in os.listdir():
+            os.mkdir("stats")
+            
+        filename = "stats/ennemy_stats-{}.json".format(self.farmer["id"])
+        if filename.split("/")[1] in os.listdir("stats/"):
+            with open(filename) as file:
+                self.ennemy_stats = json.load(file)
+        else:
+            with open(filename,"w") as file:
+                file.write("")
+
+    def saveStats(self):
+        filename = "stats/ennemy_stats-{}.json".format(self.farmer["id"])
+        with open(filename, "w") as file:
+            json.dump(self.ennemy_stats, file)
 
 
 ## ================= GARDEN =================
@@ -90,10 +135,17 @@ class LeekSession:
         return False
 
     ## Return the leek with the smallest value of talent in the specified list
-    def findWeakestLeek(self, leeks):
-        if len(leeks) > 0: 
+    ## The talent value is modified if we already encountered that leek
+    def findWeakestLeek(self, leeks, my_leek):
+        if len(leeks) > 0:
+            leek_dict = self.ennemy_stats[str(my_leek)]
             weakest = leeks[0]
+            if str(weakest["id"]) in leek_dict.keys():
+                weakest["talent"] = weakest["talent"] - leek_dict[str(weakest)]["score"]
             for leek in leeks:
+                if str(leek["id"]) in leek_dict.keys():
+                    leek["talent"] = leek["talent"] - leek_dict[str(leek)]["score"]
+                    
                 if leek["talent"] < weakest["talent"]:
                     weakest = leek
                 elif leek["talent"] == weakest["talent"]:
@@ -180,6 +232,70 @@ class LeekSession:
 
 ## ================= FIGHTS =================
 
+    ## Thread that will wait and process the fight data
+    def waitForFightData(self, fight_id):
+        response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
+        fight_data = response.json()
+
+        while fight_data["winner"] == -1:   ## While fight not processed
+            time.sleep(self.fight_delay)    ## Try not flooding the server
+            response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
+            fight_data = response.json()
+
+        winner = fight_data["winner"]
+
+        if winner != 0:
+            winner_farmer_id = fight_data["leeks{}".format(winner)][0]["farmer"]
+            my_win = False
+            if winner_farmer_id == self.farmer["id"]:
+                my_win = True
+
+            if my_win:
+                if winner == 1:
+                    my_leek_id = fight_data["leeks1"][0]["id"]
+                    ennemy_leek_id = fight_data["leeks2"][0]["id"]
+                    ennemy_leek_name = fight_data["leeks2"][0]["name"]
+                else:
+                    my_leek_id = fight_data["leeks2"][0]["id"]
+                    ennemy_leek_id = fight_data["leeks1"][0]["id"]
+                    ennemy_leek_name = fight_data["leeks1"][0]["name"]
+            else:
+                if winner == 1:
+                    my_leek_id = fight_data["leeks2"][0]["id"]
+                    ennemy_leek_id = fight_data["leeks1"][0]["id"]
+                    ennemy_leek_name = fight_data["leeks1"][0]["name"]
+                else:
+                    my_leek_id = fight_data["leeks1"][0]["id"]
+                    ennemy_leek_id = fight_data["leeks2"][0]["id"]
+                    ennemy_leek_name = fight_data["leeks2"][0]["name"]
+
+            self.updateEnnemyStats(ennemy_leek_id, ennemy_leek_name, my_leek_id, my_win)
+
+        self.count_lock.acquire()
+        self.thread_count -= 1
+        self.count_lock.release()
+
+    ## Update ennemy stats dict with the fight result
+    def updateEnnemyStats(self, ennemy_id, ennemy_name, my_leek_id, my_win):
+        self.stats_lock.acquire()
+        
+        my_leek = self.ennemy_stats[str(my_leek_id)]
+        if str(ennemy_id) in my_leek.keys():
+            if my_win:
+                if my_leek[str(ennemy_id)]["score"] < (100 - self.win_loose_score):
+                    my_leek[str(ennemy_id)]["score"] = my_leek[str(ennemy_id)]["score"] + self.win_loose_score
+            else:
+                if my_leek[str(ennemy_id)]["score"] > (-100 + self.win_loose_score):
+                    my_leek[str(ennemy_id)]["score"] = my_leek[str(ennemy_id)]["score"] - self.win_loose_score
+        else:
+            if my_win:
+                my_leek.update({ennemy_id : {"id" : ennemy_id, "name" : ennemy_name, "score" : self.win_loose_score}})
+            else:
+                my_leek.update({ennemy_id : {"id" : ennemy_id, "name" : ennemy_name, "score" : -self.win_loose_score}})
+            
+        self.stats_lock.release()
+        
+
     ## Both starts fights and registers to tournaments
     def startAll(self):
         self.startFights()
@@ -232,9 +348,18 @@ class LeekSession:
                 oppo_cookie = oppo_obj.cookies  ## Retrieve the cookie that will be sent to start a fight
                 opponents = oppo_obj.json()["opponents"]    ## Retrieve the opponents list
                 
-                weakest = self.findWeakestLeek(opponents)
+                weakest = self.findWeakestLeek(opponents, leekId)
                 if weakest:
-                    requests.post(self.BASE_URL + "garden/start-solo-fight", data={"leek_id" : str(leekId), "target_id" : str(weakest["id"])}, cookies=oppo_cookie)
+                    response = requests.post(self.BASE_URL + "garden/start-solo-fight", data={"leek_id" : str(leekId), "target_id" : str(weakest["id"])}, cookies=oppo_cookie)
+                    fight_id = response.json()["fight"]
+
+                    
+                    t = threading.Thread(target=self.waitForFightData, args=[fight_id])
+                    self.count_lock.acquire()
+                    self.thread_count += 1
+                    self.count_lock.release()
+                    t.start()
+                    
                     print("  Fight started between {} and {}".format(leekName, weakest["name"]))
 
                     new_garden = requests.get(self.BASE_URL + "garden/get", cookies=self.token).json()["garden"]

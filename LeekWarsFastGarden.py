@@ -17,7 +17,7 @@ ARCHIVE_URL = "https://github.com/marklinmax/LeekWarsFastGarden/archive/master.z
 COMMAND_LIST = ["login", "start_solo_fight", "start_team_fight", "start_fight", "start", "register_tournaments", "help", "quit"]
 
 
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 AUTHOR = "marklinmax"
 HEAD = """\nLeekWarsFastGarden v{} by {}\nEnter "help" to display the help.""".format(VERSION, AUTHOR)
 
