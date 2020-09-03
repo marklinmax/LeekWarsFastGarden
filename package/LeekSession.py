@@ -63,6 +63,7 @@ class LeekSession:
             requests.post(self.BASE_URL + "farmer/disconnect", cookies=self.token)
             print("Saving stats...")
             self.saveStats()
+            print("Stats saved!")
             self.connected = False
 
     def loadStats(self):
@@ -141,10 +142,10 @@ class LeekSession:
             leek_dict = self.ennemy_stats[str(my_leek)]
             weakest = leeks[0]
             if str(weakest["id"]) in leek_dict.keys():
-                weakest["talent"] = weakest["talent"] - leek_dict[str(weakest)]["score"]
+                weakest["talent"] = weakest["talent"] - leek_dict[str(weakest["id"])]["score"]
             for leek in leeks:
                 if str(leek["id"]) in leek_dict.keys():
-                    leek["talent"] = leek["talent"] - leek_dict[str(leek)]["score"]
+                    leek["talent"] = leek["talent"] - leek_dict[str(leek["id"])]["score"]
                     
                 if leek["talent"] < weakest["talent"]:
                     weakest = leek
@@ -281,6 +282,7 @@ class LeekSession:
         
         my_leek = self.ennemy_stats[str(my_leek_id)]
         if str(ennemy_id) in my_leek.keys():
+            print("Ennemy already fought")
             if my_win:
                 if my_leek[str(ennemy_id)]["score"] < (100 - self.win_loose_score):
                     my_leek[str(ennemy_id)]["score"] = my_leek[str(ennemy_id)]["score"] + self.win_loose_score
@@ -291,7 +293,7 @@ class LeekSession:
             if my_win:
                 my_leek.update({ennemy_id : {"id" : ennemy_id, "name" : ennemy_name, "score" : self.win_loose_score}})
             else:
-                my_leek.update({ennemy_id : {"id" : ennemy_id, "name" : ennemy_name, "score" : -self.win_loose_score}})
+                my_leek.update({ennemy_id : {"id" : ennemy_id, "name" : ennemy_name, "score" : self.win_loose_score*(-1)}})
             
         self.stats_lock.release()
         
