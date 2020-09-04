@@ -282,7 +282,6 @@ class LeekSession:
         
         my_leek = self.ennemy_stats[str(my_leek_id)]
         if str(ennemy_id) in my_leek.keys():
-            print("Ennemy already fought")
             if my_win:
                 if my_leek[str(ennemy_id)]["score"] < (100 - self.win_loose_score):
                     my_leek[str(ennemy_id)]["score"] = my_leek[str(ennemy_id)]["score"] + self.win_loose_score
