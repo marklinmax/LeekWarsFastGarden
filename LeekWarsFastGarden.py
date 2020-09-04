@@ -10,8 +10,11 @@ BASE_URL = "https://leekwars.com/api/"
 
 
 ALLOWS_AUTO_UPDATE = True
+USE_DEV_BRANCH = False
 CHECK_UPDATE_URL = "https://raw.githubusercontent.com/marklinmax/LeekWarsFastGarden/master/LeekWarsFastGarden.py"   ## URL to raw file containing version string on github
+CHECK_UPDATE_URL_DEV = "https://raw.githubusercontent.com/marklinmax/LeekWarsFastGarden/dev/LeekWarsFastGarden.py"   ## URL to raw file containing version string on github
 ARCHIVE_URL = "https://github.com/marklinmax/LeekWarsFastGarden/archive/master.zip"
+ARCHIVE_URL_DEV = "https://github.com/marklinmax/LeekWarsFastGarden/archive/dev.zip"
 
 
 COMMAND_LIST = ["login", "start_solo_fight", "start_team_fight", "start_fight", "start", "register_tournaments", "help", "quit"]
@@ -19,7 +22,10 @@ COMMAND_LIST = ["login", "start_solo_fight", "start_team_fight", "start_fight", 
 
 VERSION = "0.1.7"
 AUTHOR = "marklinmax"
-HEAD = """\nLeekWarsFastGarden v{} by {}\nEnter "help" to display the help.""".format(VERSION, AUTHOR)
+dev = ""
+if USE_DEV_BRANCH:
+    dev = "-dev"
+HEAD = """\nLeekWarsFastGarden v{}{} by {}\nEnter "help" to display the help.""".format(VERSION, dev, AUTHOR)
 
 HELP = """
 Syntax: [command] [arg1] [arg2] [arg...]
@@ -35,8 +41,16 @@ if __name__ == "__main__":
     os.chdir(os.path.dirname(__file__))
     
     updater = Updater.Updater(VERSION)
-    if updater.checkForUpdates(CHECK_UPDATE_URL) and ALLOWS_AUTO_UPDATE:
-        if not updater.update(ARCHIVE_URL, os.path.dirname(os.path.abspath(__file__+"/.."))):
+
+    if USE_DEV_BRANCH:
+        check_url = CHECK_UPDATE_URL_DEV
+        arch_url = ARCHIVE_URL_DEV
+    else:
+        check_url = CHECK_UPDATE_URL
+        arch_url = ARCHIVE_URL
+    
+    if updater.checkForUpdates(check_url) and ALLOWS_AUTO_UPDATE:
+        if not updater.update(arch_url, os.path.dirname(os.path.abspath(__file__+"/.."))):
             print("\nAn error occured during the update process. Check the error messages for more informations.")
     else:
         print(HEAD)
