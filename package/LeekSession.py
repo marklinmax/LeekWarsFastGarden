@@ -19,6 +19,7 @@ class LeekSession:
         self.ennemy_stats = {}
         self.stats_lock = threading.Lock()
 
+        self.thread_running = True
         self.thread_count = 0
         self.count_lock = threading.Lock()
 
@@ -40,6 +41,8 @@ class LeekSession:
                     if not str(leek_id) in self.ennemy_stats.keys():
                         self.ennemy_stats.update({leek_id : {"id" : leek_id, "name" : self.getLeekName(leek_id)}})
 
+                self.thread_running = True
+
                 print("Logged in successfully!")
                 return True
             else:
@@ -57,6 +60,7 @@ class LeekSession:
                 x += 1
                 if x >= 30:
                     print("Some threads are stuck, skipping them...")
+                    self.thread_running = False
                     break
                 time.sleep(1)
 
@@ -238,39 +242,40 @@ class LeekSession:
         response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
         fight_data = response.json()
 
-        while fight_data["winner"] == -1:   ## While fight not processed
+        while fight_data["winner"] == -1 and self.thread_running == True:   ## While fight not processed
             time.sleep(self.fight_delay)    ## Try not flooding the server
             response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
             fight_data = response.json()
 
-        winner = fight_data["winner"]
+        if self.thread_running = True:
+            winner = fight_data["winner"]
 
-        if winner != 0:
-            winner_farmer_id = fight_data["leeks{}".format(winner)][0]["farmer"]
-            my_win = False
-            if winner_farmer_id == self.farmer["id"]:
-                my_win = True
+            if winner != 0:
+                winner_farmer_id = fight_data["leeks{}".format(winner)][0]["farmer"]
+                my_win = False
+                if winner_farmer_id == self.farmer["id"]:
+                    my_win = True
 
-            if my_win:
-                if winner == 1:
-                    my_leek_id = fight_data["leeks1"][0]["id"]
-                    ennemy_leek_id = fight_data["leeks2"][0]["id"]
-                    ennemy_leek_name = fight_data["leeks2"][0]["name"]
+                if my_win:
+                    if winner == 1:
+                        my_leek_id = fight_data["leeks1"][0]["id"]
+                        ennemy_leek_id = fight_data["leeks2"][0]["id"]
+                        ennemy_leek_name = fight_data["leeks2"][0]["name"]
+                    else:
+                        my_leek_id = fight_data["leeks2"][0]["id"]
+                        ennemy_leek_id = fight_data["leeks1"][0]["id"]
+                        ennemy_leek_name = fight_data["leeks1"][0]["name"]
                 else:
-                    my_leek_id = fight_data["leeks2"][0]["id"]
-                    ennemy_leek_id = fight_data["leeks1"][0]["id"]
-                    ennemy_leek_name = fight_data["leeks1"][0]["name"]
-            else:
-                if winner == 1:
-                    my_leek_id = fight_data["leeks2"][0]["id"]
-                    ennemy_leek_id = fight_data["leeks1"][0]["id"]
-                    ennemy_leek_name = fight_data["leeks1"][0]["name"]
-                else:
-                    my_leek_id = fight_data["leeks1"][0]["id"]
-                    ennemy_leek_id = fight_data["leeks2"][0]["id"]
-                    ennemy_leek_name = fight_data["leeks2"][0]["name"]
+                    if winner == 1:
+                        my_leek_id = fight_data["leeks2"][0]["id"]
+                        ennemy_leek_id = fight_data["leeks1"][0]["id"]
+                        ennemy_leek_name = fight_data["leeks1"][0]["name"]
+                    else:
+                        my_leek_id = fight_data["leeks1"][0]["id"]
+                        ennemy_leek_id = fight_data["leeks2"][0]["id"]
+                        ennemy_leek_name = fight_data["leeks2"][0]["name"]
 
-            self.updateEnnemyStats(ennemy_leek_id, ennemy_leek_name, my_leek_id, my_win)
+                self.updateEnnemyStats(ennemy_leek_id, ennemy_leek_name, my_leek_id, my_win)
 
         self.count_lock.acquire()
         self.thread_count -= 1
