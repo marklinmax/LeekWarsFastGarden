@@ -247,7 +247,7 @@ class LeekSession:
             response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
             fight_data = response.json()
 
-        if self.thread_running = True:
+        if self.thread_running == True:
             winner = fight_data["winner"]
 
             if winner != 0:
