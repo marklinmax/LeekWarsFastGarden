@@ -15,6 +15,7 @@ class LeekSession:
         self.farmer = {}
         self.fight_delay = 0.2 ## Time between two combat requests in second.
         self.win_loose_score = 10
+        self.tied_score = 5
 
         self.ennemy_stats = {}
         self.stats_lock = threading.Lock()
@@ -250,32 +251,27 @@ class LeekSession:
         if self.thread_running == True:
             winner = fight_data["winner"]
 
+
+            my_win = 0
+            
             if winner != 0:
                 winner_farmer_id = fight_data["leeks{}".format(winner)][0]["farmer"]
-                my_win = False
+                my_win = -1
                 if winner_farmer_id == self.farmer["id"]:
-                    my_win = True
+                    my_win = 1
 
-                if my_win:
-                    if winner == 1:
-                        my_leek_id = fight_data["leeks1"][0]["id"]
-                        ennemy_leek_id = fight_data["leeks2"][0]["id"]
-                        ennemy_leek_name = fight_data["leeks2"][0]["name"]
-                    else:
-                        my_leek_id = fight_data["leeks2"][0]["id"]
-                        ennemy_leek_id = fight_data["leeks1"][0]["id"]
-                        ennemy_leek_name = fight_data["leeks1"][0]["name"]
-                else:
-                    if winner == 1:
-                        my_leek_id = fight_data["leeks2"][0]["id"]
-                        ennemy_leek_id = fight_data["leeks1"][0]["id"]
-                        ennemy_leek_name = fight_data["leeks1"][0]["name"]
-                    else:
-                        my_leek_id = fight_data["leeks1"][0]["id"]
-                        ennemy_leek_id = fight_data["leeks2"][0]["id"]
-                        ennemy_leek_name = fight_data["leeks2"][0]["name"]
+            if str(fight_data["leeks1"][0]["id"]) in self.getFarmerLeeks():
+                my_leek_id = fight_data["leeks1"][0]["id"]
+                ennemy_leek_id = fight_data["leeks2"][0]["id"]
+                ennemy_leek_name = fight_data["leeks2"][0]["name"]
+            else:
+                my_leek_id = fight_data["leeks2"][0]["id"]
+                ennemy_leek_id = fight_data["leeks1"][0]["id"]
+                ennemy_leek_name = fight_data["leeks1"][0]["name"]
 
-                self.updateEnnemyStats(ennemy_leek_id, ennemy_leek_name, my_leek_id, my_win)
+
+
+            self.updateEnnemyStats(ennemy_leek_id, ennemy_leek_name, my_leek_id, my_win)
 
         self.count_lock.acquire()
         self.thread_count -= 1
@@ -287,14 +283,19 @@ class LeekSession:
         
         my_leek = self.ennemy_stats[str(my_leek_id)]
         if str(ennemy_id) in my_leek.keys():
-            if my_win:
+            if my_win == 0:
+                if my_leek[str(ennemy_id)]["score"] > (-100 + self.tied_score):
+                    my_leek[str(ennemy_id)]["score"] = my_leek[str(ennemy_id)]["score"] - self.tied_score
+            elif my_win == 1:
                 if my_leek[str(ennemy_id)]["score"] < (100 - self.win_loose_score):
                     my_leek[str(ennemy_id)]["score"] = my_leek[str(ennemy_id)]["score"] + self.win_loose_score
             else:
                 if my_leek[str(ennemy_id)]["score"] > (-100 + self.win_loose_score):
                     my_leek[str(ennemy_id)]["score"] = my_leek[str(ennemy_id)]["score"] - self.win_loose_score
         else:
-            if my_win:
+            if my_win == 0:
+                my_leek.update({ennemy_id : {"id" : ennemy_id, "name" : ennemy_name, "score" : self.tied_score*(-1)}})
+            elif my_win == 1:
                 my_leek.update({ennemy_id : {"id" : ennemy_id, "name" : ennemy_name, "score" : self.win_loose_score}})
             else:
                 my_leek.update({ennemy_id : {"id" : ennemy_id, "name" : ennemy_name, "score" : self.win_loose_score*(-1)}})
