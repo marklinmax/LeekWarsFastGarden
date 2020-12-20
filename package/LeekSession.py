@@ -201,8 +201,8 @@ class LeekSession:
 
     ## Return the compositions list
     def getTeamCompositions(self):
-        compositions = requests.get(self.BASE_URL + "team-composition/get-farmer-compositions", cookies=self.token).json()
         out = []
+        compositions = requests.get(self.BASE_URL + "team-composition/get-farmer-compositions", cookies=self.token).json()
         for key, val in compositions.items():
             out.append(val)
         return out
@@ -225,8 +225,8 @@ class LeekSession:
 
     ## Return the corresponding composition name
     def getCompositionName(self, compo_id):
-        compositions = self.getTeamCompositions()
         out = ""
+        compositions = self.getTeamCompositions()
         for compo in compositions:
             if compo["id"] == compo_id:
                 out = compo["name"]
@@ -250,6 +250,7 @@ class LeekSession:
         return False
 
     ## Return the composition with the smallest value of talent in the specified list
+    ## The talent value is modified if we already encountered that composition
     def findWeakestComposition(self, compos, my_compo):
         if len(compos) > 0:
             print(self.enemy_compo_stats)
@@ -270,9 +271,7 @@ class LeekSession:
         return False
 
     def registerCompositionTournament(self, compoName=""):
-        if compoName == "":
-            success = True
-            
+        if compoName == "":            
             names = self.getTeamCompositionsNames()
 
             for compo in names:
@@ -474,8 +473,8 @@ class LeekSession:
                 
             print("\n == Starting {} solo fights... == ".format(number))
             for x in range(0, number):
-                oppo_obj = requests.get(self.BASE_URL + "garden/get-leek-opponents/{}".format(leekId), cookies=self.token)##["opponents"]
-                oppo_cookie = oppo_obj.cookies  ## Retrieve the cookie that will be sent to start a fight
+                oppo_obj = requests.get(self.BASE_URL + "garden/get-leek-opponents/{}".format(leekId), cookies=self.token)
+                oppo_cookie = oppo_obj.cookies              ## Retrieve the cookie that will be sent to start a fight
                 opponents = oppo_obj.json()["opponents"]    ## Retrieve the opponents list
                 
                 weakest = self.findWeakestLeek(opponents, leekId)
@@ -492,11 +491,7 @@ class LeekSession:
                     
                     print("  Fight started between {} and {}".format(leekName, weakest["name"]))
 
-                    new_garden = requests.get(self.BASE_URL + "garden/get", cookies=self.token).json()["garden"]
-                    ## This part is not yet functional
-                    ##if garden["fights"] - 1 > new_garden["fights"]:       ## If the fight count changed from an external source
-                    ##    x += garden["fights"] - new_garden["fights"] - 1  ## we add the difference to x to skip some fights.
-                    garden = new_garden
+                    garden = self.getGarden()   ## Refresh the garden
 
                     print("    -{} total solo fights remaining.".format(garden["fights"]))
                     time.sleep(self.fight_delay)
@@ -551,8 +546,7 @@ class LeekSession:
                         print("  Fight started between {} and {}".format(compoName, weakest["name"]))
                         
 
-                        new_garden = self.getTeamCompositionGarden(compoId) ## Refresh the garden
-                        garden = new_garden
+                        garden = self.getTeamCompositionGarden(compoId) ## Refresh the garden
 
                         print("    -{} fights remaining for {}.".format(garden["fights"], compoName))
                         time.sleep(self.fight_delay)
