@@ -1,6 +1,8 @@
 import requests
 import json
 import time
+import os
+import threading
 
 
 class LeekSession:
@@ -12,6 +14,16 @@ class LeekSession:
         self.token = {"token" : ""}     ## The token cookie that will be sent for identification
         self.farmer = {}
         self.fight_delay = 0.2 ## Time between two combat requests in second.
+        self.win_loose_score = 10
+        self.tied_score = 5
+
+        self.enemy_stats = {}
+        self.enemy_compo_stats = {}
+        self.stats_lock = threading.Lock()
+
+        self.thread_running = True
+        self.thread_count = 0
+        self.count_lock = threading.Lock()
 
 
 ## ================= LOGIN =================
@@ -25,17 +37,73 @@ class LeekSession:
                 self.token = {"token" : result["token"]}    ## Store the token as a cookie for future use
                 self.farmer = result["farmer"]
                 self.connected = True
+
+                self.loadStats()
+                for leek_id in self.getFarmerLeeks():
+                    if not str(leek_id) in self.enemy_stats.keys():
+                        self.enemy_stats.update({str(leek_id) : {"id" : leek_id, "name" : self.getLeekName(leek_id)}})
+
+                for compo_id in self.getTeamCompositionsId():
+                    if not str(compo_id) in self.enemy_compo_stats.keys():
+                        self.enemy_compo_stats.update({str(compo_id) : {"id" : compo_id, "name" : self.getCompositionName(compo_id), "data" : {}}})
+
+                self.thread_running = True
+
                 print("Logged in successfully!")
                 return True
             else:
                 print("The token could not be retrieved.")
         return False
-    
+
+
     ## Disconnect the user
     def logout(self):
         if self.connected == True:
+            if self.thread_count != 0:
+                print("Waiting for threads to terminate...")
+            x = 0
+            while self.thread_count != 0:
+                x += 1
+                if x >= 30:
+                    print("Some threads are stuck, skipping them...")
+                    self.thread_running = False
+                    break
+                time.sleep(1)
+
             requests.post(self.BASE_URL + "farmer/disconnect", cookies=self.token)
+            print("Saving stats...")
+            self.saveStats()
+            print("Stats saved!")
             self.connected = False
+
+    def loadStats(self):
+        if not "stats" in os.listdir():
+            os.mkdir("stats")
+            
+        filename = "stats/ennemy_stats-{}.json".format(self.farmer["id"])
+        if filename.split("/")[1] in os.listdir("stats/"):
+            with open(filename) as file:
+                self.enemy_stats = json.load(file)
+        else:
+            with open(filename,"w") as file:
+                file.write("")
+
+        compo_filename = "stats/compo_stats-{}.json".format(self.farmer["id"])
+        if compo_filename.split("/")[1] in os.listdir("stats/"):
+            with open(compo_filename) as file:
+                self.enemy_compo_stats = json.load(file)
+        else:
+            with open(filename,"w") as file:
+                file.write("")
+
+    def saveStats(self):
+        filename = "stats/ennemy_stats-{}.json".format(self.farmer["id"])
+        with open(filename, "w") as file:
+            json.dump(self.enemy_stats, file)
+
+        compo_filename = "stats/compo_stats-{}.json".format(self.farmer["id"])
+        with open(compo_filename, "w") as file:
+            json.dump(self.enemy_compo_stats, file)
 
 
 ## ================= GARDEN =================
@@ -90,10 +158,17 @@ class LeekSession:
         return False
 
     ## Return the leek with the smallest value of talent in the specified list
-    def findWeakestLeek(self, leeks):
-        if len(leeks) > 0: 
+    ## The talent value is modified if we already encountered that leek
+    def findWeakestLeek(self, leeks, my_leek):
+        if len(leeks) > 0:
+            leek_dict = self.enemy_stats[str(my_leek)]
             weakest = leeks[0]
+            if str(weakest["id"]) in leek_dict.keys():
+                weakest["talent"] = weakest["talent"] - leek_dict[str(weakest["id"])]["score"]
             for leek in leeks:
+                if str(leek["id"]) in leek_dict.keys():
+                    leek["talent"] = leek["talent"] - leek_dict[str(leek["id"])]["score"]
+                    
                 if leek["talent"] < weakest["talent"]:
                     weakest = leek
                 elif leek["talent"] == weakest["talent"]:
@@ -126,18 +201,35 @@ class LeekSession:
 
     ## Return the compositions list
     def getTeamCompositions(self):
-        compositions = requests.get(self.BASE_URL + "team-composition/get-farmer-compositions", cookies=self.token).json()
         out = []
+        compositions = requests.get(self.BASE_URL + "team-composition/get-farmer-compositions", cookies=self.token).json()
         for key, val in compositions.items():
             out.append(val)
         return out
 
+    ## Return the compositions id list
+    def getTeamCompositionsId(self):
+        out = []
+        compositions = self.getTeamCompositions()
+        for compo in compositions:
+            out.append(compo["id"])
+        return out
+
     ## Return the compositions name list
     def getTeamCompositionsNames(self):
-        compositions = self.getTeamCompositions()
         out = []
+        compositions = self.getTeamCompositions()
         for compo in compositions:
             out.append(compo["name"])
+        return out
+
+    ## Return the corresponding composition name
+    def getCompositionName(self, compo_id):
+        out = ""
+        compositions = self.getTeamCompositions()
+        for compo in compositions:
+            if compo["id"] == compo_id:
+                out = compo["name"]
         return out
 
     ## Return the composition name ID for the specified composition name
@@ -148,11 +240,27 @@ class LeekSession:
                 return compo["id"]
         return False
 
+    ## Return the specified leek's composition id
+    def getCompoIdFromLeek(self, leek_id):
+        compos = self.getTeamCompositions()
+        for compo in compos:
+            for leek in compo["leeks"]:
+                if leek["id"] == leek_id:
+                    return compo["id"]
+        return False
+
     ## Return the composition with the smallest value of talent in the specified list
-    def findWeakestComposition(self, compos):
-        if len(compos) > 0: 
+    ## The talent value is modified if we already encountered that composition
+    def findWeakestComposition(self, compos, my_compo):
+        if len(compos) > 0:
+            compo_dict = self.enemy_compo_stats[str(my_compo)]["data"]
             weakest = compos[0]
+            if str(weakest["id"]) in compo_dict.keys():
+                weakest["talent"] -= compo_dict[str(weakest["id"])]["score"]
             for compo in compos:
+                if str(compo["id"]) in compo_dict.keys():
+                     compo["talent"] -= compo_dict[str(compo["id"])]["score"]
+                
                 if compo["talent"] < weakest["talent"]:
                     weakest = compo
                 elif compo["talent"] == weakest["talent"]:
@@ -162,9 +270,7 @@ class LeekSession:
         return False
 
     def registerCompositionTournament(self, compoName=""):
-        if compoName == "":
-            success = True
-            
+        if compoName == "":            
             names = self.getTeamCompositionsNames()
 
             for compo in names:
@@ -179,6 +285,144 @@ class LeekSession:
 
 
 ## ================= FIGHTS =================
+
+    ## Thread that will wait and process the solo fight data
+    def waitForFightData(self, fight_id):
+        response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
+        fight_data = response.json()
+
+        while fight_data["winner"] == -1 and self.thread_running == True:   ## While fight not processed
+            time.sleep(self.fight_delay)    ## Try not flooding the server
+            response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
+            fight_data = response.json()
+
+        if self.thread_running == True:
+            winner = fight_data["winner"]
+
+
+            my_win = 0
+            
+            if winner != 0:
+                winner_farmer_id = fight_data["leeks{}".format(winner)][0]["farmer"]
+                my_win = -1
+                if winner_farmer_id == self.farmer["id"]:
+                    my_win = 1
+
+            if str(fight_data["leeks1"][0]["id"]) in self.getFarmerLeeks():
+                my_leek_id = fight_data["leeks1"][0]["id"]
+                enemy_leek_id = fight_data["leeks2"][0]["id"]
+                enemy_leek_name = fight_data["leeks2"][0]["name"]
+            else:
+                my_leek_id = fight_data["leeks2"][0]["id"]
+                enemy_leek_id = fight_data["leeks1"][0]["id"]
+                enemy_leek_name = fight_data["leeks1"][0]["name"]
+
+
+
+            self.updateEnemyStats(enemy_leek_id, enemy_leek_name, my_leek_id, my_win)
+
+        self.count_lock.acquire()
+        self.thread_count -= 1
+        self.count_lock.release()
+
+    ## Update enemy stats dict with the solo fight result
+    def updateEnemyStats(self, enemy_id, enemy_name, my_leek_id, my_win):
+        self.stats_lock.acquire()
+        
+        my_leek = self.enemy_stats[str(my_leek_id)]
+        if str(enemy_id) in my_leek.keys():
+            if my_win == 0:
+                if my_leek[str(enemy_id)]["score"] > (-100 + self.tied_score):
+                    my_leek[str(enemy_id)]["score"] = my_leek[str(enemy_id)]["score"] - self.tied_score
+            elif my_win == 1:
+                if my_leek[str(enemy_id)]["score"] < (100 - self.win_loose_score):
+                    my_leek[str(enemy_id)]["score"] = my_leek[str(enemy_id)]["score"] + self.win_loose_score
+            else:
+                if my_leek[str(enemy_id)]["score"] > (-100 + self.win_loose_score):
+                    my_leek[str(enemy_id)]["score"] = my_leek[str(enemy_id)]["score"] - self.win_loose_score
+        else:
+            if my_win == 0:
+                my_leek.update({enemy_id : {"id" : enemy_id, "name" : enemy_name, "score" : self.tied_score*(-1)}})
+            elif my_win == 1:
+                my_leek.update({enemy_id : {"id" : enemy_id, "name" : enemy_name, "score" : self.win_loose_score}})
+            else:
+                my_leek.update({enemy_id : {"id" : enemy_id, "name" : enemy_name, "score" : self.win_loose_score*(-1)}})
+            
+        self.stats_lock.release()
+
+    ## Thread that will wait and process the team fight data
+    def waitForTeamFightData(self, fight_id):
+        response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
+        fight_data = response.json()
+
+        while fight_data["winner"] == -1 and self.thread_running == True:   ## While fight not processed
+            time.sleep(self.fight_delay)    ## Try not flooding the server
+            response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
+            fight_data = response.json()
+
+
+        if self.thread_running == True:
+            winner = fight_data["winner"]
+
+            my_win = 0
+
+            self.getCompoIdFromLeek(0)
+
+            if winner != 0:
+                winner_farmers = fight_data["farmers{}".format(winner)]
+                my_win = -1
+                if str(self.farmer["id"]) in winner_farmers.keys():
+                    my_win = 1
+
+            ## Search for my composition id
+            my_compo_id = False
+            for leek in fight_data["leeks1"]:
+                my_compo_id = self.getCompoIdFromLeek(leek["id"])
+                if my_compo_id:
+                    enemy_team_id = fight_data["team2"]
+                    enemy_team_name = fight_data["team2_name"]
+                    break
+            if not my_compo_id:
+                for leek in fight_data["leeks2"]:
+                    my_compo_id = self.getCompoIdFromLeek(leek["id"])
+                    if my_compo_id:
+                        enemy_team_id = fight_data["team1"]
+                        enemy_team_name = fight_data["team1_name"]
+                        break
+
+            ## Uses enemy team id instead of composition id.
+            ## Best solution would be to internally keep track of different known compositions
+            ## based on the enemy leeks list and assign them a local id
+            self.updateTeamFightStats(enemy_team_id, enemy_team_name, my_compo_id, my_win)
+
+        self.count_lock.acquire()
+        self.thread_count -= 1
+        self.count_lock.release()
+
+    ## Update the composition fight dict with the team fight result
+    def updateTeamFightStats(self, enemy_compo_id, enemy_compo_name, my_compo_id, my_win):
+        self.stats_lock.acquire()
+        
+        my_compo = self.enemy_compo_stats[str(my_compo_id)]
+        if str(enemy_compo_id) in my_compo["data"].keys():
+            if my_win == 0:
+                    my_compo["data"][str(enemy_compo_id)]["score"] -= self.tied_score
+            elif my_win == 1:
+                if my_compo["data"][str(enemy_compo_id)]["score"] < (100 - self.win_loose_score):
+                    my_compo["data"][str(enemy_compo_id)]["score"] += self.win_loose_score
+            else:
+                if my_compo["data"][str(enemy_compo_id)]["score"] > (-100 + self.win_loose_score):
+                    my_compo["data"][str(enemy_compo_id)]["score"] -= self.win_loose_score
+        else:
+            if my_win == 0:
+                my_compo["data"].update({enemy_compo_id : {"id" : enemy_compo_id, "name" : enemy_compo_name, "score" : self.tied_score*(-1)}})
+            elif my_win == 1:
+                my_compo["data"].update({enemy_compo_id : {"id" : enemy_compo_id, "name" : enemy_compo_name, "score" : self.win_loose_score}})
+            else:
+                my_compo["data"].update({enemy_compo_id : {"id" : enemy_compo_id, "name" : enemy_compo_name, "score" : self.win_loose_score*(-1)}})
+                
+        self.stats_lock.release()
+
 
     ## Both starts fights and registers to tournaments
     def startAll(self):
@@ -228,20 +472,25 @@ class LeekSession:
                 
             print("\n == Starting {} solo fights... == ".format(number))
             for x in range(0, number):
-                oppo_obj = requests.get(self.BASE_URL + "garden/get-leek-opponents/{}".format(leekId), cookies=self.token)##["opponents"]
-                oppo_cookie = oppo_obj.cookies  ## Retrieve the cookie that will be sent to start a fight
+                oppo_obj = requests.get(self.BASE_URL + "garden/get-leek-opponents/{}".format(leekId), cookies=self.token)
+                oppo_cookie = oppo_obj.cookies              ## Retrieve the cookie that will be sent to start a fight
                 opponents = oppo_obj.json()["opponents"]    ## Retrieve the opponents list
                 
-                weakest = self.findWeakestLeek(opponents)
+                weakest = self.findWeakestLeek(opponents, leekId)
                 if weakest:
-                    requests.post(self.BASE_URL + "garden/start-solo-fight", data={"leek_id" : str(leekId), "target_id" : str(weakest["id"])}, cookies=oppo_cookie)
+                    response = requests.post(self.BASE_URL + "garden/start-solo-fight", data={"leek_id" : str(leekId), "target_id" : str(weakest["id"])}, cookies=oppo_cookie)
+                    fight_id = response.json()["fight"]
+
+                    
+                    t = threading.Thread(target=self.waitForFightData, args=[fight_id])
+                    self.count_lock.acquire()
+                    self.thread_count += 1
+                    self.count_lock.release()
+                    t.start()
+                    
                     print("  Fight started between {} and {}".format(leekName, weakest["name"]))
 
-                    new_garden = requests.get(self.BASE_URL + "garden/get", cookies=self.token).json()["garden"]
-                    ## This part is not yet functional
-                    ##if garden["fights"] - 1 > new_garden["fights"]:       ## If the fight count changed from an external source
-                    ##    x += garden["fights"] - new_garden["fights"] - 1  ## we add the difference to x to skip some fights.
-                    garden = new_garden
+                    garden = self.getGarden()   ## Refresh the garden
 
                     print("    -{} total solo fights remaining.".format(garden["fights"]))
                     time.sleep(self.fight_delay)
@@ -282,14 +531,21 @@ class LeekSession:
                     oppo_cookie = oppo_obj.cookies
                     opponents = oppo_obj.json()["opponents"]
                     
-                    weakest = self.findWeakestComposition(opponents)
+                    weakest = self.findWeakestComposition(opponents, compoId)
                     if weakest:
-                        requests.post(self.BASE_URL + "garden/start-team-fight", data={"composition_id" : str(compoId), "target_id" : str(weakest["id"])}, cookies=oppo_cookie)
+                        response = requests.post(self.BASE_URL + "garden/start-team-fight", data={"composition_id" : str(compoId), "target_id" : str(weakest["id"])}, cookies=oppo_cookie)
+                        fight_id = response.json()["fight"]
+
+                        t = threading.Thread(target=self.waitForTeamFightData, args=[fight_id])
+                        self.count_lock.acquire()
+                        self.thread_count += 1
+                        self.count_lock.release()
+                        t.start()
+                        
                         print("  Fight started between {} and {}".format(compoName, weakest["name"]))
                         
 
-                        new_garden = self.getTeamCompositionGarden(compoId) ## Refresh the garden
-                        garden = new_garden
+                        garden = self.getTeamCompositionGarden(compoId) ## Refresh the garden
 
                         print("    -{} fights remaining for {}.".format(garden["fights"], compoName))
                         time.sleep(self.fight_delay)
