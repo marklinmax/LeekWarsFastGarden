@@ -253,7 +253,6 @@ class LeekSession:
     ## The talent value is modified if we already encountered that composition
     def findWeakestComposition(self, compos, my_compo):
         if len(compos) > 0:
-            print(self.enemy_compo_stats)
             compo_dict = self.enemy_compo_stats[str(my_compo)]["data"]
             weakest = compos[0]
             if str(weakest["id"]) in compo_dict.keys():
