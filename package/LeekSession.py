@@ -130,6 +130,13 @@ class LeekSession:
                 return self.farmer["leeks"][leekId]["name"]
         return False
 
+    ## Return the specified leek level
+    def getLeekLevel(self, leekId):
+        if len(self.farmer.keys()) != 0:
+            if leekId in self.farmer["leeks"].keys():
+                return int(self.farmer["leeks"][leekId]["level"])
+        return False
+
     ## Return the farmer's leeks ID list.
     def getFarmerLeeks(self):
         if len(self.farmer.keys()) != 0:
@@ -449,9 +456,14 @@ class LeekSession:
         if leekName == "":
             success = True
             
-            names = self.getFarmerLeeksNames()
+            ids = self.getFarmerLeeks()
             garden = self.getGarden()
             total_fights = garden["fights"]
+
+            names = []
+            for leek_id in ids:
+                if self.getLeekLevel(leek_id) != 301:
+                    names.append(self.getLeekName(leek_id))
 
             if total_fights % len(names) == 0:
                 for leek in names:
