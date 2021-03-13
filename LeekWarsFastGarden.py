@@ -20,7 +20,7 @@ ARCHIVE_URL_DEV = "https://github.com/marklinmax/LeekWarsFastGarden/archive/dev.
 COMMAND_LIST = ["login", "start_solo_fight", "start_team_fight", "start_fight", "start", "register_tournaments", "help", "quit"]
 
 
-VERSION = "0.1.7"
+VERSION = "0.1.8"
 AUTHOR = "marklinmax"
 dev = ""
 if USE_DEV_BRANCH:
