@@ -62,7 +62,7 @@ class LeekSession:
             if self.thread_count != 0:
                 print("Waiting for threads to terminate...")
             x = 0
-            while self.thread_count != 0 && self.thread_running == True:
+            while self.thread_count != 0 and self.thread_running == True:
                 x += 1
                 if x >= 30:
                     print("Some threads are stuck, skipping them...")
