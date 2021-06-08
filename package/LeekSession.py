@@ -62,12 +62,11 @@ class LeekSession:
             if self.thread_count != 0:
                 print("Waiting for threads to terminate...")
             x = 0
-            while self.thread_count != 0:
+            while self.thread_count != 0 && self.thread_running == True:
                 x += 1
                 if x >= 30:
                     print("Some threads are stuck, skipping them...")
                     self.thread_running = False
-                    break
                 time.sleep(1)
 
             requests.post(self.BASE_URL + "farmer/disconnect", cookies=self.token)
@@ -295,38 +294,41 @@ class LeekSession:
 
     ## Thread that will wait and process the solo fight data
     def waitForFightData(self, fight_id):
-        response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
-        fight_data = response.json()
-
-        while fight_data["winner"] == -1 and self.thread_running == True:   ## While fight not processed
-            time.sleep(self.fight_delay)    ## Try not flooding the server
+        try:
             response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
             fight_data = response.json()
 
-        if self.thread_running == True:
-            winner = fight_data["winner"]
+            while fight_data["winner"] == -1 and self.thread_running == True:   ## While fight not processed
+                time.sleep(self.fight_delay)    ## Try not flooding the server
+                response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
+                fight_data = response.json()
+
+            if self.thread_running == True:
+                winner = fight_data["winner"]
 
 
-            my_win = 0
-            
-            if winner != 0:
-                winner_farmer_id = fight_data["leeks{}".format(winner)][0]["farmer"]
-                my_win = -1
-                if winner_farmer_id == self.farmer["id"]:
-                    my_win = 1
+                my_win = 0
+                
+                if winner != 0:
+                    winner_farmer_id = fight_data["leeks{}".format(winner)][0]["farmer"]
+                    my_win = -1
+                    if winner_farmer_id == self.farmer["id"]:
+                        my_win = 1
 
-            if str(fight_data["leeks1"][0]["id"]) in self.getFarmerLeeks():
-                my_leek_id = fight_data["leeks1"][0]["id"]
-                enemy_leek_id = fight_data["leeks2"][0]["id"]
-                enemy_leek_name = fight_data["leeks2"][0]["name"]
-            else:
-                my_leek_id = fight_data["leeks2"][0]["id"]
-                enemy_leek_id = fight_data["leeks1"][0]["id"]
-                enemy_leek_name = fight_data["leeks1"][0]["name"]
+                if str(fight_data["leeks1"][0]["id"]) in self.getFarmerLeeks():
+                    my_leek_id = fight_data["leeks1"][0]["id"]
+                    enemy_leek_id = fight_data["leeks2"][0]["id"]
+                    enemy_leek_name = fight_data["leeks2"][0]["name"]
+                else:
+                    my_leek_id = fight_data["leeks2"][0]["id"]
+                    enemy_leek_id = fight_data["leeks1"][0]["id"]
+                    enemy_leek_name = fight_data["leeks1"][0]["name"]
 
 
 
-            self.updateEnemyStats(enemy_leek_id, enemy_leek_name, my_leek_id, my_win)
+                self.updateEnemyStats(enemy_leek_id, enemy_leek_name, my_leek_id, my_win)
+        except(Exception) as error:
+            print(error)
 
         self.count_lock.acquire()
         self.thread_count -= 1
@@ -359,48 +361,52 @@ class LeekSession:
 
     ## Thread that will wait and process the team fight data
     def waitForTeamFightData(self, fight_id):
-        response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
-        fight_data = response.json()
-
-        while fight_data["winner"] == -1 and self.thread_running == True:   ## While fight not processed
-            time.sleep(self.fight_delay)    ## Try not flooding the server
+        try:
             response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
             fight_data = response.json()
 
+            while fight_data["winner"] == -1 and self.thread_running == True:   ## While fight not processed
+                time.sleep(self.fight_delay)    ## Try not flooding the server
+                response = requests.get(self.BASE_URL + "fight/get/{}".format(fight_id),cookies=self.token)
+                fight_data = response.json()
 
-        if self.thread_running == True:
-            winner = fight_data["winner"]
 
-            my_win = 0
+            if self.thread_running == True:
+                winner = fight_data["winner"]
 
-            self.getCompoIdFromLeek(0)
+                my_win = 0
 
-            if winner != 0:
-                winner_farmers = fight_data["farmers{}".format(winner)]
-                my_win = -1
-                if str(self.farmer["id"]) in winner_farmers.keys():
-                    my_win = 1
+                self.getCompoIdFromLeek(0)
 
-            ## Search for my composition id
-            my_compo_id = False
-            for leek in fight_data["leeks1"]:
-                my_compo_id = self.getCompoIdFromLeek(leek["id"])
-                if my_compo_id:
-                    enemy_team_id = fight_data["team2"]
-                    enemy_team_name = fight_data["team2_name"]
-                    break
-            if not my_compo_id:
-                for leek in fight_data["leeks2"]:
+                if winner != 0:
+                    winner_farmers = fight_data["farmers{}".format(winner)]
+                    my_win = -1
+                    if str(self.farmer["id"]) in winner_farmers.keys():
+                        my_win = 1
+
+                ## Search for my composition id
+                my_compo_id = False
+                for leek in fight_data["leeks1"]:
                     my_compo_id = self.getCompoIdFromLeek(leek["id"])
                     if my_compo_id:
-                        enemy_team_id = fight_data["team1"]
-                        enemy_team_name = fight_data["team1_name"]
+                        enemy_team_id = fight_data["team2"]
+                        enemy_team_name = fight_data["team2_name"]
                         break
+                if not my_compo_id:
+                    for leek in fight_data["leeks2"]:
+                        my_compo_id = self.getCompoIdFromLeek(leek["id"])
+                        if my_compo_id:
+                            enemy_team_id = fight_data["team1"]
+                            enemy_team_name = fight_data["team1_name"]
+                            break
 
-            ## Uses enemy team id instead of composition id.
-            ## Best solution would be to internally keep track of different known compositions
-            ## based on the enemy leeks list and assign them a local id
-            self.updateTeamFightStats(enemy_team_id, enemy_team_name, my_compo_id, my_win)
+                ## Uses enemy team id instead of composition id.
+                ## Best solution would be to internally keep track of different known compositions
+                ## based on the enemy leeks list and assign them a local id
+                self.updateTeamFightStats(enemy_team_id, enemy_team_name, my_compo_id, my_win)
+
+        except(Exception) as error:
+            print(error)
 
         self.count_lock.acquire()
         self.thread_count -= 1
@@ -464,8 +470,9 @@ class LeekSession:
             for leek_id in ids:
                 if self.getLeekLevel(leek_id) != 301:
                     names.append(self.getLeekName(leek_id))
-
-            if total_fights % len(names) == 0:
+            if len(names) == 0:
+                print("No leek under max level found!")
+            elif total_fights % len(names) == 0:
                 for leek in names:
                     success = success and self.startSoloFights(leek, int(total_fights/len(names)))
             else:
